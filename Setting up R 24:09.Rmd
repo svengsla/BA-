@@ -1,0 +1,39 @@
+---
+title: "Setting Up R"
+author: "Sai Supriya Vengala"
+date: '2022-09-23'
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## 
+
+```{r}
+install.packages("ISLR", repos = "http://cran.us.r-project.org")
+library(ISLR)
+```
+
+```{r}
+X<-Carseats
+summary(Carseats)
+print(Carseats)
+
+```
+
+```{r}
+max(Carseats$Sales)
+hist(Carseats$Sales)
+```
+
+```{r}
+IQR(Carseats$Price)
+```
+
+```{r}
+graph<-plot(Carseats$Sales, Carseats$Price, main = "Scatterplot", xlab = "Sales", ylab = "Price",abline(Carseats$Sales,Carseats$Price))
+```
