@@ -1,0 +1,176 @@
+---
+title: "BA OL Retail Analytics"
+author: "Sai Supriya Vengala"
+date: "10/23/2022"
+output:
+  word_document: default
+  html_document: default
+  pdf_document: default
+---
+
+```{r}
+#Required libraries are to be loaded first
+library(readr)
+library(dplyr)
+Online_Retail <- read_csv("Online_Retail.csv")
+```
+
+
+```{r}
+#task1: calculating the countries accounting for more than 1% of the total transactions.
+trans_country <-table(Online_Retail$Country)
+transaction_percent<- round(100*prop.table(trans_country))
+percentage <- cbind(trans_country, transaction_percent)
+account <-subset(percentage, transaction_percent >1)
+account
+```
+#task2:Creating  a  new  variable  ‘TransactionValue’  that  is  the  product  of  the  exising 
+#‘Quantity’  and  ‘UnitPrice’ variables.
+```{r}
+
+TransactionValue <-Online_Retail$Quantity * Online_Retail$UnitPrice
+Online_Retail <- Online_Retail %>% mutate(TransactionValue)
+summary(Online_Retail$TransactionValue)
+
+```
+#task3:Calculating the countries with total transaction exceeding 130,000 British Pound
+```{r}
+Sum_trans <- sum(TransactionValue)
+store<-summarise(group_by(Online_Retail, Country), Sum_trans)
+Total <- filter(store, Sum_trans >130000)
+Total
+```
+#task4
+```{r}
+
+Temp=strptime(Online_Retail$InvoiceDate,format='%m/%d/%Y %H:%M',tz='GMT')
+Online_Retail$New_Invoice_Date <- as.Date(Temp)
+Diff <- Online_Retail$New_Invoice_Date[20000]- Online_Retail$New_Invoice_Date[10]
+Diff
+Online_Retail$Invoice_Day_Week= weekdays(Online_Retail$New_Invoice_Date) 
+Online_Retail$New_Invoice_Hour = as.numeric(format(Temp, "%H"))
+Online_Retail$New_Invoice_Month = as.numeric(format(Temp, "%m"))
+```
+#a)Showing the percentage of transactions (by numbers) by 
+#days of the week  
+ 
+```{r}
+
+country_totaltran1<-summarise(group_by(Online_Retail,Invoice_Day_Week) ,Trans_val=n_distinct(InvoiceNo))
+percentage1<-mutate(country_totaltran1,
+                    Trans_perc=(Trans_val/sum(Trans_val))*100)
+percentage1
+```
+#b) Showing  the  percentage  of  transactions  
+#(by  transaction  volume)  by  days  of  the  week 
+```{r}
+country_tran1<-summarise(group_by(Online_Retail,Invoice_Day_Week),Trans_val1=sum(TransactionValue))
+percen1<-mutate(country_tran1,Trans_perc1=(Trans_val1/sum(Trans_val1))*100)
+percen1
+
+```
+#c)Show the percentage of transactions (by transaction volume)
+#by month of the year
+```{r}
+
+country_totaltran2<-summarise(group_by(Online_Retail,New_Invoice_Month),Trans_val2=sum(TransactionValue))
+percentage2<-mutate(country_totaltran2,Trans_perc2=(Trans_val2/sum(Trans_val2))*100)
+percentage2
+```
+#d) The date with the highest number of transactions from Australia.
+```{r}
+
+Online_Retail %>% filter(Country == 'Australia') %>% group_by(New_Invoice_Date) %>% 
+  summarise(max=max(TransactionValue))
+```
+#e)Calculating the hour of the day to start this so that the distribution is at 
+#minimum for the customers?
+```{r}
+library(zoo)
+start1<-summarise(group_by(Online_Retail,New_Invoice_Hour),
+                  Tran_mini=n_distinct(InvoiceNo))
+start1<-filter(start1,New_Invoice_Hour>=7&New_Invoice_Hour<=20)
+start2<-rollapply(start1$Tran_mini,3,sum)
+start3<-which.min(start2)
+start3
+```
+#task5:Plotting the histogram of transaction values from Germany. Using the hist() function to plot.
+```{r}
+
+German_Trans <- subset(Online_Retail$TransactionValue, Online_Retail$Country =="Germany")
+hist(German_Trans, xlim = c (-600, 900), breaks = 100, xlab = "transaction values of Germany", 
+     main = "Germany")
+```
+#task6:Calculating the customer with highest number of transactions most valuable customer.
+#(i.e. highest total sum of transactions)
+```{r}
+High_Trans <- na.omit(Online_Retail)
+High_Trans <- summarise(group_by(Online_Retail, CustomerID), sum2 = sum(TransactionValue))
+High_Trans[which.max(High_Trans$sum2),]
+store1 <- table(High_Trans$CustomerID)
+store1 <- as.data.frame(store1)
+Val_Cust <- store1[which.max(store1$Freq),]
+Val_Cust
+```
+#task7:Calculating  the  percentage  of  missing  values  for  each  variable  in  the  dataset  
+```{r}
+Miss_Val <-colMeans(is.na(Online_Retail)*100)
+Miss_Val
+```
+#task8:Calculating the number of transactions with missing CustomerID records by countries?
+```{r}
+Val_Cust <- Online_Retail %>% filter(is.na(CustomerID)) %>% group_by(Country)
+summary(Val_Cust$Country)
+```
+#task9:Calculating how often the costumers 
+#comeback to the website for their next shopping
+
+```{r}
+Freaq <- Online_Retail %>%
+  group_by(InvoiceNo, CustomerID, Country, New_Invoice_Date, New_Invoice_Month, New_Invoice_Hour, 
+           Invoice_Day_Week) %>%
+  summarise(Trans6 = sum(TransactionValue)) %>%
+  mutate(Freq1 = Sys.Date() - New_Invoice_Date) %>%
+  ungroup()
+Freaq$Freq1 <- as.character(Freaq$Freq1)
+Freaq$Freq2 <- sapply(Freaq$Freq1, 
+  FUN = function(x) {strsplit(x, split = '[ ]')[[1]][1]})
+Freaq$Freq2 <- as.integer(Freaq$Freq2)
+head(Freaq, n = 5)
+attach(Freaq)
+FreaqCust <- Online_Retail %>%
+  group_by(CustomerID, Country) %>%
+  summarise(Cust_order = n_distinct(InvoiceNo),
+            Trans7 = sum(TransactionValue), 
+  PerDay = names(which.max(table(Invoice_Day_Week))), 
+PerHour=names(which.max(table(New_Invoice_Hour))),
+            Frequency = min(Freaq$Freq2))%>%
+  ungroup()
+head(FreaqCust)
+```
+#task10:Calculating the return rate for the French customers.
+```{r}
+France_Trans <- filter(Online_Retail, Country=="France")
+Trow <- nrow(France_Trans)
+Cancel_Trans <- nrow(subset(France_Trans,TransactionValue<0))
+Cancel_Trans
+No_Cancel<- Trow-Cancel_Trans
+No_Cancel
+Return=(Cancel_Trans/8556)
+Return
+```
+#task11:Calculating the product that has generated the highest revenue for the retailer. 
+#(i.e. item with the highest total sum of ‘TransactionValue’).
+```{r}
+TransactionValue <- tapply(Online_Retail$TransactionValue, Online_Retail$StockCode, sum)
+TransactionValue[which.max(TransactionValue)] # to find highest value
+```
+#task12:Finding the unique customers that are represented in the dataset using unique() function
+```{r}
+Unique_Cust  <- unique(Online_Retail$CustomerID)
+length(Unique_Cust )
+```
+
+
+
+
